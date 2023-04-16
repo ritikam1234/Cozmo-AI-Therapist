@@ -1,0 +1,29 @@
+from cozmo_fsm import *
+import cozmo
+
+"""
+Happy: cozmo.anim.Triggers.CodeLabHappy
+Surprised: cozmo.anim.Triggers.CodeLabSurprise
+Sad: cozmo.anim.Triggers.CodeLabDejected
+Neutral: cozmo.anim.Triggers.CodeLabIdle
+Angry: cozmo.anim.Triggers.CodeLabFrustrated
+Unknown: cozmo.anim.Triggers.CodeLabStaring
+"""
+
+class getFaceExpression(StateNode):
+    def start(self, event=None):
+        expressions = {cozmo.faces.FACIAL_EXPRESSION_HAPPY:cozmo.anim.Triggers.CodeLabHappy, cozmo.faces.FACIAL_EXPRESSION_SURPRISED:cozmo.anim.Triggers.CodeLabSurprise, cozmo.faces.FACIAL_EXPRESSION_UNKNOWN:cozmo.anim.Triggers.CodeLabStaring, cozmo.faces.FACIAL_EXPRESSION_NEUTRAL:cozmo.anim.Triggers.CodeLabIdle, cozmo.faces.FACIAL_EXPRESSION_ANGRY:cozmo.anim.Triggers.CodeLabFrustrated, cozmo.faces.FACIAL_EXPRESSION_SAD:cozmo.anim.Triggers.CodeLabDejected}
+        for d in self.robot.world.world_map.objects:
+            obj = self.robot.world.world_map.objects[d]
+            if isinstance(obj, FaceObj):
+                self.post_data(expressions[obj.expression])
+        super().start(event)
+
+class CozmoEmotions(StateMachineProgram):
+    $setup {
+        loop: Say("Show me your face!")
+        loop =C=> face
+        face: self.getFaceExpression()
+        face =D=> AnimationTriggerNode() =C=> loop
+        face =F=> Say("I can't see your face") =C=> loop
+    }
