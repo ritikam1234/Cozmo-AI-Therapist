@@ -87,7 +87,7 @@ def negative_connotations(response):
     query_premise = """ My job is to look at the given prompt and vet it for any negative words or connotations. 
     If it is negative I will respond with 'negative' and I will not respond with any other words, 
     otherwise if I dont respond with negative and if there is nothing negative in the prompt 
-    I will respond with only the word 'positive' and nothing else except 'position'. """
+    I will respond with only the word 'positive' and nothing else except 'positive'. """
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "assistant", "content": query_premise},
