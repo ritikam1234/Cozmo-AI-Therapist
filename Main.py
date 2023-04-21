@@ -30,39 +30,38 @@ class Main(StateMachineProgram):
     def __init__(self):
         super().__init__(speech = True, speech_debug = True)
     
-    #neutral net 1 (face recognition)
-
-    #neural net 2 (sentiment analysis)
-    class Heard(StateNode):
-        def start(self,event):
-            super().start(event)
-            prompt = event.result.groups()[1]
-            self.post_data(resp)
      
-    class runGpt(StateNode):
-        def chatting(self, event=None):
-            super().start(event)
+    class runGpt(Say):
+        def start(self, event=None):
             query = event.string
-            print("How are you feeling today?")
-            while True:
-                self.parent.allMessages.append({"role": "user", "content": query})
-                emotion = sentiment_analysis(query)
-                if emotion == "unknown":
-                    resp = standard_response(query)
-                else:
-                    query = "Emotion: " + emotion + "Query: " + query
-                    response = openai.ChatCompletion.create(
-                        model="gpt-3.5-turbo",
-                        messages=allMessages
-                    )
-                    resp = response['choices'][0]['message']['content']
-                if len(resp) > 150:
-                    resp = length_check(resp)
-                self.parent.allMessages.append({"role": "assistant", "content": "Response: " + resp})
-                self.post_data(resp)
-    
+            print("query", query)
+            self.parent.allMessages.append({"role": "user", "content": query})
+            emotion = sentiment_analysis(query)
+            print(emotion)
+            if emotion == "unknown":
+                resp = standard_response(query)
+            else:
+                query = "Emotion: " + emotion + "Query: " + query
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=self.parent.allMessages
+                )
+                resp = response['choices'][0]['message']['content']
+            if len(resp) > 150:
+                resp = length_check(resp)
+            if negative_connotations(resp) == False:
+                resp = standard_response(query)
+            self.parent.allMessages.append({"role": "assistant", "content": "Response: " + resp})
+            self.text = resp
+            super().start(event)
+
+    class Dummy(StateNode):
+        def start(self, event=None):
+            super().start(event)
+            sleep(10)
+
     $setup {
-        Start() = N => Say("How are you feeling today?") = Hear() => question
-        question: self.Heard()
-        question = D => self.runGpt() = D => Say() = Hear() => question
+        start: Start() = N =>  Say("How are you feeling today?") = Hear=> question
+        question: self.runGpt() =C=> wait
+        wait: StateNode() =T(2)=>Say("") = Hear=>question
     }
