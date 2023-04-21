@@ -10,18 +10,31 @@ Angry: cozmo.anim.Triggers.CodeLabFrustrated
 Unknown: cozmo.anim.Triggers.CodeLabStaring
 """
 
-class getFaceExpression(StateNode):
-    def start(self, event=None):
-        expressions = {cozmo.faces.FACIAL_EXPRESSION_HAPPY:cozmo.anim.Triggers.CodeLabHappy, cozmo.faces.FACIAL_EXPRESSION_SURPRISED:cozmo.anim.Triggers.CodeLabSurprise, cozmo.faces.FACIAL_EXPRESSION_UNKNOWN:cozmo.anim.Triggers.CodeLabStaring, cozmo.faces.FACIAL_EXPRESSION_NEUTRAL:cozmo.anim.Triggers.CodeLabIdle, cozmo.faces.FACIAL_EXPRESSION_ANGRY:cozmo.anim.Triggers.CodeLabFrustrated, cozmo.faces.FACIAL_EXPRESSION_SAD:cozmo.anim.Triggers.CodeLabDejected}
-        for d in self.robot.world.world_map.objects:
-            obj = self.robot.world.world_map.objects[d]
-            if isinstance(obj, FaceObj):
-                self.post_data(expressions[obj.expression])
-        super().start(event)
+import warnings
+warnings.filterwarnings("ignore")
 
 class CozmoEmotions(StateMachineProgram):
+    class getFaceExpression(StateNode):
+        def start(self, event=None):
+            super().start(event)
+            expressions = {cozmo.faces.FACIAL_EXPRESSION_HAPPY:cozmo.anim.Triggers.CodeLabHappy, \
+            cozmo.faces.FACIAL_EXPRESSION_SURPRISED:cozmo.anim.Triggers.CodeLabSurprise, \
+            cozmo.faces.FACIAL_EXPRESSION_UNKNOWN:cozmo.anim.Triggers.CodeLabStaring, \
+            cozmo.faces.FACIAL_EXPRESSION_NEUTRAL:cozmo.anim.Triggers.CodeLabIdle, \
+            cozmo.faces.FACIAL_EXPRESSION_ANGRY:cozmo.anim.Triggers.CodeLabCurious, \
+            cozmo.faces.FACIAL_EXPRESSION_SAD:cozmo.anim.Triggers.CodeLabDejected}
+            noFace = True
+            for d in self.robot.world.world_map.objects:
+                obj = self.robot.world.world_map.objects[d]
+                if isinstance(obj, FaceObj):
+                    noFace = False
+                    print(expressions[obj.expression])
+                    self.post_data(expressions[obj.expression])
+            if noFace:
+                self.post_failure()
+            
     $setup {
-        loop: Say("Show me your face!")
+        loop: Say("")
         loop =C=> face
         face: self.getFaceExpression()
         face =D=> AnimationTriggerNode() =C=> loop
