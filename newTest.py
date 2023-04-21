@@ -6,7 +6,6 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def sentiment_analysis(text):
     preamble = """
-
     """
 
     premise = """
@@ -17,7 +16,6 @@ def sentiment_analysis(text):
     query = """
     Classify the following sentence into an emotion from the list of emotions.
     Respond with only one word, which is an emotion from the list.  If not sure, respond with only unknown.
-
     """
     while True:
         query = text
@@ -41,7 +39,7 @@ def sentiment_analysis(text):
 
 #check for a certain word limit
 def length_check(resp):
-    additional = """  Please cut the following message within the limit of 25 words or fewer only. Ensure the tone remains happy and encouraging""" + query
+    additional = """  Please cut the following message within the limit of 25 words or fewer only. Ensure the tone remains happy and encouraging""" + resp
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "assistant", "content": preamble},
@@ -52,11 +50,6 @@ def length_check(resp):
     resp = response['choices'][0]['message']['content']
     return resp
 
-
-#when sentiment analyis is unknown say this: "What are you thinking? etc"
-def emotion_check(emotion):
-    query = input("Please help me understand your current emotions by adding a little more detail")
-    return query
 
 
 #standard responses in preamble ("Don't worry everything will be ok")
@@ -81,28 +74,27 @@ def query_analysis(query):
 
 #check for bad words/negative sentiments
 def negative_connotations(response):
-    query_premise = """ My job is to look at the given prompt and check if it asks the user to do anything unethical or morally wrong. 
-    If it is negative I will respond with 'negative' and I will not respond with any other words, 
-    otherwise if I dont respond with negative and if there is nothing negative in the prompt 
-    I will respond with only the word 'positive' and nothing else except 'positive'. """
+    query_premise = """ My job is to look at the given prompt and check if it tells the user to do anything unethical or morally wrong. 
+    If it is dangerous or unethical prompt I will respond with 'bad' and I will not respond with any other words, 
+    otherwise I will respond with only the word "Good" "."""
+    query = "Analyse this prompt:" + response
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "assistant", "content": query_premise},
                   {"role": "system", "content": query_premise},
-            ({"role": "user", "content": response})]
+            ({"role": "user", "content": query})]
     )
     resp = response['choices'][0]['message']['content']
-    if 'positive' in resp.lower():
-        return True
-    else:
+    if 'bad' in resp.lower():
         return False
+    else:
+        return True
 
 
 #In the case that a negative response was given we must revisit the response and respond with a standard answer
 #If person is feeling cyz, respond with xyz comments
 def standard_response(query):
     analysis_results = query_analysis(query)
-    print("analysis results", analysis_results)
     #standard responses in preamble ("Don't worry everything will be ok")
     if "1" in analysis_results:
         return "What are you thinking? Do you want to elaborate a little more for me?"
@@ -139,21 +131,17 @@ def chatting():
         emotion = sentiment_analysis(query)
         if emotion == "unknown":
             resp = standard_response(query)
-            print("emotion unknown")
-
         else:
             query = "Emotion: " + emotion + "Query: " + query
-            print("new query: ", query)
             response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
                 messages=allMessages
             )
             resp = response['choices'][0]['message']['content']
-            print("original response", resp)
         if len(resp) > 150:
             resp = length_check(resp)
-            print("length check", resp, '\n')
+        if negative_connotations(resp) == False:
+            resp = standard_response(query)
         print(resp)
         allMessages.append({"role": "assistant", "content": "Response: " + resp})
-
-chatting()
+#chatting()
