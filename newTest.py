@@ -39,7 +39,7 @@ def sentiment_analysis(text):
 
 #check for a certain word limit
 def length_check(resp):
-    additional = """  Please cut the following message within the limit of 25 words or fewer only. Ensure the tone remains happy and encouraging""" + resp
+    additional = """  Please cut the following message within the limit of 25 words or fewer only. Ensure the key message is the same""" + resp
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "assistant", "content": preamble},
@@ -56,12 +56,11 @@ def length_check(resp):
 def query_analysis(query):
     query_preamble = ""
     query_premise = """
-    I am a highly trained therapist.  I can provide you with some insights on how to analyze the sentences spoken by a person and try to understand their emotional state and classify them into the following categories and 
-    only respond with one of the four categories label numbers and it's description - respond with nothing else but the category number 1, 2, 3, or 4. The four categories labeled 1, 2, 3 and 4 are the following:
-    1. "You are not absolutely sure you know what the participant is thinking": If the person is using vague or ambiguous language, or if their statements are open to interpretation, it may be difficult to determine their exact thoughts or emotions. In this case, you must ask clarifying questions to gain a better understanding of their perspective.
-    2. "Something happens that seems to surprise the person": If the person expresses surprise or shock in their tone or language, it may indicate that they were not expecting a particular outcome or situation. You must ask them what specifically surprised them and explore how they feel about it.
-    3. "The person is trying to get you to give them a clue": If the person is asking for guidance or direction, it may be because they feel uncertain or unsure about a particular situation. You must ask them more questions to understand their context and help them arrive at their own conclusion.
-    4. "The person asks you to explain how something works or is supposed to work": If the person is seeking clarification or understanding, it may be because they are trying to make sense of a complex topic or process. You must provide clear and concise explanations and ask them if they have any further questions or concerns.
+    I am a highly trained therapist. I provide a response when the emotion that the person is feeling from their prompt is not clear. 
+    My responses are always positive, and ethical inline with the code of ethics and my response must be under 25 words. I will only respond with one of the following three options:
+    1. if the person asks a question, respond with a short answer 
+    2. If the person has a very short prompt, respond with asking them to explain how they feel
+    3. If you are not sure what the person is feeling, respond with "How are you feeling? Do you want to talk about it?"
     """
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -99,7 +98,7 @@ def standard_response(query):
     if "1" in analysis_results:
         return "What are you thinking? Do you want to elaborate a little more for me?"
     elif "2" in analysis_results:
-        return "“Is that what you expected to happen?"
+        return "Is that what you expected to happen?"
     elif "3" in analysis_results:
         return "What would you do if I was not here?"
     elif "4" in analysis_results:
@@ -130,7 +129,7 @@ def chatting():
         allMessages.append({"role": "user", "content": query})
         emotion = sentiment_analysis(query)
         if emotion == "unknown":
-            resp = standard_response(query)
+            resp = query_analysis(query)
         else:
             query = "Emotion: " + emotion + "Query: " + query
             response = openai.ChatCompletion.create(
@@ -142,6 +141,7 @@ def chatting():
             resp = length_check(resp)
         if negative_connotations(resp) == False:
             resp = standard_response(query)
-        print(resp)
+        resp = resp.replace("Response: ", "")
         allMessages.append({"role": "assistant", "content": "Response: " + resp})
+        print(resp)
 #chatting()

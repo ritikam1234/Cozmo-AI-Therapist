@@ -1,0 +1,52 @@
+from cozmo_fsm import *
+import math
+
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+
+class TornToFace(Turn):
+    def __init__(self, check_vis=False):
+        self.check_vis = check_vis
+        super().__init__()
+
+    def start(self, event=None):
+        self.check_vis = False
+        print("starting.....")
+        if self.running: return
+        for d in self.robot.world.world_map.objects:
+            print("in the loooop")
+            obj = self.robot.world.world_map.objects[d]
+            if isinstance(obj, FaceObj):
+                self.check_vis = True
+                face = obj
+        
+        if not self.check_vis:
+            print('** TurnToCube %s could not see the cube.' % self.name)
+            self.angle = degrees(90)
+            super().start(event)
+            self.post_failure()
+            print('TurnToCube %s posted failure' % self.name)
+        else:
+            (sx, sy, _) = face.x, face.y, face.z
+            (cx, cy, ctheta) = self.robot.pose.position.x, self.robot.pose.position.y, self.robot.pose.rotation.angle_z.radians
+            dx = sx - cx
+            dy = sy - cy
+            dist = sqrt(dx*dx + dy*dy)
+            self.angle = Angle(degrees = wrap_angle(atan2(dy,dx) - ctheta) * 180/pi)
+            if abs(self.angle.degrees) <= 2:
+                self.angle = degrees(0)
+            if abs(self.angle.degrees) > 60:
+                    (self.name, sx, sy, cx, cy, dist, self.angle.degrees)
+            super().start(event)
+            self.post_completion()
+
+                        
+
+class TurnToFace(StateMachineProgram):
+    $setup {
+        StateNode() =T(3) => do_it
+        do_it: TornToFace()
+        do_it = F => do_it
+        do_it = C => do_it
+    }

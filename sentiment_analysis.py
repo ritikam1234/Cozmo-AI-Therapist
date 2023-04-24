@@ -33,4 +33,5 @@ def sentiment_analysis(text):
         if len(response['choices'][0]['message']['content'].split(" ")) > 1:
             return "unknown"
         else:
-            return response['choices'][0]['message']['content']
+            resp = response['choices'][0]['message']['content']
+            return resp.lower().replace('.', '')
