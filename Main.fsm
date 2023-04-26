@@ -27,12 +27,13 @@ class Start(StateNode):
                                     {"role": "system", "content": self.parent.premise}]
         super().start(event)
 
-class TornToFace(Turn):
+class TurnToFace(Turn):
     def __init__(self, check_vis=False):
         self.check_vis = check_vis
         super().__init__()
 
     def start(self, event=None):
+        #if self.running: return
         self.check_vis = False
         for d in self.robot.world.world_map.objects:
             obj = self.robot.world.world_map.objects[d]
@@ -41,11 +42,8 @@ class TornToFace(Turn):
                 face = obj
         
         if not self.check_vis:
-            print('** TurnToCube %s could not see the cube.' % self.name)
-            self.angle = degrees(90)
+            self.angle = 45
             super().start(event)
-            self.post_failure()
-            print('TurnToCube %s posted failure' % self.name)
         else:
             (sx, sy, _) = face.x, face.y, face.z
             (cx, cy, ctheta) = self.robot.pose.position.x, self.robot.pose.position.y, self.robot.pose.rotation.angle_z.radians
@@ -58,68 +56,68 @@ class TornToFace(Turn):
             if abs(self.angle.degrees) > 60:
                     (self.name, sx, sy, cx, cy, dist, self.angle.degrees)
             super().start(event)
-            self.post_completion()
 
-class CozmoEmotions(StateNode):
+class CozmoEmotions(AnimationTriggerNode):
     def start(self, event=None):
         super().start(event)
         expressions = {cozmo.faces.FACIAL_EXPRESSION_HAPPY:cozmo.anim.Triggers.CodeLabHappy, \
-            cozmo.faces.FACIAL_EXPRESSION_SURPRISED:cozmo.anim.Triggers.CodeLabBlink, \
-            cozmo.faces.FACIAL_EXPRESSION_UNKNOWN:cozmo.anim.Triggers.CodeLabStaring, \
-            cozmo.faces.FACIAL_EXPRESSION_NEUTRAL:cozmo.anim.Triggers.CodeLabIDK, \
-            cozmo.faces.FACIAL_EXPRESSION_ANGRY:cozmo.anim.Triggers.CodeLabExcited, \
-            cozmo.faces.FACIAL_EXPRESSION_SAD:cozmo.anim.Triggers.CodeLabWondering}
+        cozmo.faces.FACIAL_EXPRESSION_SURPRISED:cozmo.anim.Triggers.CodeLabSurprise, \
+        cozmo.faces.FACIAL_EXPRESSION_UNKNOWN:cozmo.anim.Triggers.CodeLabStaring, \
+        cozmo.faces.FACIAL_EXPRESSION_NEUTRAL:cozmo.anim.Triggers.CodeLabIDK, \
+        cozmo.faces.FACIAL_EXPRESSION_ANGRY:cozmo.anim.Triggers.CodeLabCurious, \
+        cozmo.faces.FACIAL_EXPRESSION_SAD:cozmo.anim.Triggers.CodeLabWondering}
         noFace = True
         for d in self.robot.world.world_map.objects:
             obj = self.robot.world.world_map.objects[d]
             if isinstance(obj, FaceObj):
                 noFace = False
                 print(expressions[obj.expression])
-                self.post_data(expressions[obj.expression])
+                self.trigger = expressions[obj.expression]
         if noFace:
-            self.post_data(cozmo.anim.Triggers.CodeLabThinking)
+            self.post_failure()
 
 class Main(StateMachineProgram):
     def __init__(self):
-        super().__init__(speech = True, speech_debug = True)
+        super().__init__(speech = True, speech_debug = False)
     
      
     class runGpt(Say):
         def start(self, event=None):
             query = event.string
-            print("query", query)
             self.parent.allMessages.append({"role": "user", "content": query})
             emotion = sentiment_analysis(query)
-            print(emotion)
-            if emotion == "unknown":
-                resp = query_analysis(query)
-            else:
-                query = "Emotion: " + emotion + "Query: " + query
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=self.parent.allMessages
-                )
-                resp = response['choices'][0]['message']['content']
-            if len(resp) > 150:
-                resp = length_check(resp)
+            query = "Emotion: " + emotion + "Query: " + query
+            curr_premise = """ Return the best response to the given query. There are 3 possible responses given, choose a response and return only the response.
+                                Choose the response that also doesn't exceed 25 words!!! Don't include the number at the start of the response"""
+            possible_answers = "Query: " + query
+            for i in range(3):
+                    possible_answers += "\n" + str(i+1) + " " + response_generator(query, emotion, self.parent.allMessages)
+                    response = openai.ChatCompletion.create(
+                        model="gpt-3.5-turbo",
+                        messages=[{"role": "assistant", "content": self.parent.preamble},
+                        {"role": "system", "content": curr_premise}, 
+                        ({"role": "user", "content": possible_answers})]
+                    )
+            #print("Possible answers:", possible_answers)
+            resp = response['choices'][0]['message']['content']
             if negative_connotations(resp) == False:
-                resp = standard_response(query)
-            resp = resp.replace("Response: ", "")
+                resp = query_analysis(query)
+            try:
+                colon = resp.index(":")
+                resp = resp[colon+1:]
+            except:
+                if resp[0] in '1234567890':
+                    resp = resp[2:]
             self.parent.allMessages.append({"role": "assistant", "content": "Response: " + resp})
             self.text = resp
             super().start(event)
 
-    class Dummy(StateNode):
-        def start(self, event=None):
-            super().start(event)
-            sleep(10)
-
     $setup {
-        start: Start() =N=> {task1, do_it}
+        start: Start() =N => SetHeadAngle(Angle(44.5)) =C=> {task1, do_it}
         task1: Say("How are you feeling today?") =Hear=> question
-        question: self.runGpt() =C=> CozmoEmotions() =D=> AnimationTriggerNode() =C=> wait
+        question: self.runGpt() =C=> CozmoEmotions() =C=> wait
         wait: StateNode() =T(2)=> Say("") =Hear=>question
-        do_it: TornToFace()
-        do_it = F => do_it
-        do_it = C => do_it
+        do_it: TurnToFace()
+        do_it =C=> do_it
     }
+
