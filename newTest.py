@@ -89,22 +89,48 @@ def negative_connotations(response):
     else:
         return True
 
+allMessages = [{"role": "assistant", "content": preamble},
+                {"role": "system", "content": premise}]
 
 #In the case that a negative response was given we must revisit the response and respond with a standard answer
 #If person is feeling cyz, respond with xyz comments
-def standard_response(query):
-    analysis_results = query_analysis(query)
-    #standard responses in preamble ("Don't worry everything will be ok")
-    if "1" in analysis_results:
-        return "What are you thinking? Do you want to elaborate a little more for me?"
-    elif "2" in analysis_results:
-        return "Is that what you expected to happen?"
-    elif "3" in analysis_results:
-        return "What would you do if I was not here?"
-    elif "4" in analysis_results:
-        return "What do you think?"
-    else:
-        return "Please help me understand your current emotions by adding a little more detail"
+def response_generator(query, emotion):
+    print("How are you feeling today?")
+    curr_premise = """
+    I am a highly trained professional therapist. I am helpful, empathetic, non-judgemental,
+    optimistic, and very friendly. I am here to listen to all of your worries and give general
+    advice. I never say anything negative or harmful. Look at the previous query and responses as well when formulating the response.
+    Please respond within the limit of 25 words or fewer only.
+    """
+    final_query = "Emotion" + emotion + "Query" + query
+    response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=allMessages)
+    resp = response['choices'][0]['message']['content']
+    return resp
+ 
+ def iterative(query):
+    print("How are you feeling today?")
+    while True:
+         query = input()
+         emotion = sentiment_analysis(query)
+         curr_premise = """ Return the best response to the query from 1. 2. and 3. - 
+                            only respond with the the words after "response:" """
+         possible_answers = ""
+          for i in range(3):
+                posible_answers += "\n" + str(i) + "response: " + response_generator(query, emotion)
+           
+            if len(resp) > 150:
+            resp = length_check(resp)
+        if negative_connotations(resp) == False:
+            resp = query_analysis(query)
+        resp = resp.replace("Response: ", "")
+        allMessages.append({"role": "assistant", "content": "Response: " + resp})
+        print(resp)
+            
+ 
+    
+    
 
 #check if advice relates to prompt? 
 
@@ -119,8 +145,7 @@ Please respond within the limit of 25 words or fewer only.
 """
 
 
-allMessages = [{"role": "assistant", "content": preamble},
-                {"role": "system", "content": premise}]
+
 
 def chatting():
     print("How are you feeling today?")
@@ -140,7 +165,7 @@ def chatting():
         if len(resp) > 150:
             resp = length_check(resp)
         if negative_connotations(resp) == False:
-            resp = standard_response(query)
+            resp = query_analysis(query)
         resp = resp.replace("Response: ", "")
         allMessages.append({"role": "assistant", "content": "Response: " + resp})
         print(resp)
